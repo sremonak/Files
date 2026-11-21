@@ -58,9 +58,16 @@ class AnalyzerViewModel : ViewModel() {
     fun deleteDuplicates(group: DuplicateGroup, keep: File) {
         viewModelScope.launch {
             val toDelete = group.files.filterNot { it == keep }
-            files.deleteToTrash(toDelete)
+            for (candidate in toDelete) {
+                if (files.identicalFiles(keep, candidate)) files.deleteToTrash(listOf(candidate))
+            }
             _state.update { state ->
-                val remaining = state.duplicateGroups.filterNot { it.hash == group.hash }
+                val remaining = state.duplicateGroups.mapNotNull { current ->
+                    if (current != group) current else {
+                        val existing = current.files.filter { it.exists() }
+                        if (existing.size > 1) current.copy(files = existing) else null
+                    }
+                }
                 state.copy(
                     duplicateGroups = remaining,
                     wastedBytes = remaining.sumOf { it.wastedBytes }
@@ -71,8 +78,9 @@ class AnalyzerViewModel : ViewModel() {
 
     fun deleteFile(file: File) {
         viewModelScope.launch {
-            files.deleteToTrash(listOf(file))
-            _state.update { it.copy(largestFiles = it.largestFiles.filterNot { f -> f == file }) }
+            if (files.deleteToTrash(listOf(file)) == 1) {
+                _state.update { it.copy(largestFiles = it.largestFiles.filterNot { f -> f == file }) }
+            }
         }
     }
 }

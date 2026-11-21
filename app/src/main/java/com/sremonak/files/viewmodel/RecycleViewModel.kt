@@ -13,7 +13,8 @@ import kotlinx.coroutines.launch
 data class RecycleUiState(
     val entries: List<TrashEntry> = emptyList(),
     val totalSize: Long = 0,
-    val loading: Boolean = true
+    val loading: Boolean = true,
+    val message: String? = null
 )
 
 class RecycleViewModel : ViewModel() {
@@ -27,6 +28,8 @@ class RecycleViewModel : ViewModel() {
         load()
     }
 
+    fun clearMessage() { _state.update { it.copy(message = null) } }
+
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true) }
@@ -38,7 +41,8 @@ class RecycleViewModel : ViewModel() {
 
     fun restore(entry: TrashEntry) {
         viewModelScope.launch {
-            files.restore(entry)
+            val ok = files.restore(entry)
+            _state.update { it.copy(message = if (ok) "Restored ${entry.name}" else "Restore failed. Check storage access and available space.") }
             load()
         }
     }

@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sremonak.files.R
 import com.sremonak.files.data.model.DuplicateGroup
 import com.sremonak.files.ui.components.EmptyState
+import com.sremonak.files.ui.components.ConfirmDialog
 import com.sremonak.files.ui.components.SectionHeader
 import com.sremonak.files.util.FileUtils
 import com.sremonak.files.viewmodel.AnalyzerViewModel
@@ -59,7 +60,20 @@ fun AnalyzerScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var keepMap by remember { mutableStateOf(mapOf<String, String>()) }
+    var pendingGroup by remember { mutableStateOf<Pair<DuplicateGroup, File>?>(null) }
+    var pendingFile by remember { mutableStateOf<File?>(null) }
 
+    pendingGroup?.let { (group, keep) ->
+        ConfirmDialog(title = "Move duplicates to trash?",
+            message = "Keep ${keep.name} and move the other verified copies to trash?",
+            confirmText = "Move to trash", onConfirm = { viewModel.deleteDuplicates(group, keep); pendingGroup = null },
+            onDismiss = { pendingGroup = null })
+    }
+    pendingFile?.let { file ->
+        ConfirmDialog(title = "Move to trash?", message = "Move ${file.name} to trash?",
+            confirmText = "Move to trash", onConfirm = { viewModel.deleteFile(file); pendingFile = null },
+            onDismiss = { pendingFile = null })
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -155,7 +169,7 @@ fun AnalyzerScreen(
                             onDeleteDuplicates = { keepPath ->
                                 val keep = group.files.firstOrNull { it.absolutePath == keepPath }
                                     ?: group.files.firstOrNull()
-                                if (keep != null) viewModel.deleteDuplicates(group, keep)
+                                if (keep != null) pendingGroup = group to keep
                             },
                             onOpenDetails = onOpenDetails
                         )
@@ -181,7 +195,7 @@ fun AnalyzerScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            IconButton(onClick = { viewModel.deleteFile(file) }) {
+                            IconButton(onClick = { pendingFile = file }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Move to trash")
                             }
                         }

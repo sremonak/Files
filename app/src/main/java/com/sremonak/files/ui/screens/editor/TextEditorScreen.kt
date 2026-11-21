@@ -87,6 +87,9 @@ fun TextEditorScreen(
     BackHandler(enabled = state.isDirty) { showDiscardConfirm = true }
 
     LaunchedEffect(path) { viewModel.load(path) }
+    LaunchedEffect(state.saveError) {
+        state.saveError?.let { snackbarHost.showSnackbar(it); viewModel.clearSaveError() }
+    }
     LaunchedEffect(state.savedTick) {
         if (state.savedTick > 0) snackbarHost.showSnackbar("Saved")
     }

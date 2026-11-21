@@ -263,20 +263,35 @@ class FileRepository(private val context: Context) {
             !name.contains('/') && !name.contains('\\') && !name.contains('\n') && !name.contains('\r')
 
     private fun copyComplete(source: File, target: File): Boolean {
+        // Never follow links into another tree or overwrite a pre-existing destination.
+        var ownsRoot = false
+        fun copyNode(from: File, to: File) {
+            if (Files.isSymbolicLink(from.toPath())) throw java.io.IOException("Symbolic links are not supported")
+            if (from.isDirectory) {
+                if (!to.mkdir()) throw java.io.IOException("Cannot create destination")
+                if (to == target) ownsRoot = true
+                val children = from.listFiles() ?: throw java.io.IOException("Cannot list source")
+                children.forEach { child -> copyNode(child, File(to, child.name)) }
+            } else if (from.isFile) {
+                from.inputStream().use { input ->
+                    if (!to.createNewFile()) throw java.io.IOException("Destination already exists")
+                    if (to == target) ownsRoot = true
+                    to.outputStream().use { output -> input.copyTo(output) }
+                }
+            } else throw java.io.IOException("Source disappeared")
+        }
+        if (target.exists()) return false
         return try {
-            if (source.isDirectory) {
-                source.copyRecursively(target, onError = { _, error -> throw error })
-            } else {
-                source.copyTo(target)
-                true
-            }
+            copyNode(source, target)
+            true
         } catch (_: Exception) {
-            target.deleteRecursively()
+            if (ownsRoot) target.deleteRecursively()
             false
         }
     }
 
     private fun transfer(source: File, target: File): Boolean {
+        if (target.exists()) return false
         if (source.renameTo(target)) return true
         if (!copyComplete(source, target)) return false
         // Keep the completed copy even if deleting the original fails.
@@ -447,6 +462,7 @@ class FileRepository(private val context: Context) {
                 if (depth > 8) continue
                 val children = try { dir.listFiles() } catch (_: Exception) { null } ?: continue
                 for (child in children) {
+                    if (Files.isSymbolicLink(child.toPath())) continue
                     if (child.isDirectory) {
                         if (child.name == "data" && dir.name == "Android") continue
                         stack.add(child to depth + 1)
@@ -459,7 +475,14 @@ class FileRepository(private val context: Context) {
             results
         }
 
-    suspend fun searchFiles(query: String, maxResults: Int = 500): List<File> =
+    suspend fun searchFiles(
+        query: String,
+        maxResults: Int = 500,
+        category: FileCategory? = null,
+        minSize: Long = 0,
+        modifiedAfter: Long = 0,
+        includeHidden: Boolean = false
+    ): List<File> =
         withContext(Dispatchers.IO) {
             val needle = query.lowercase()
             val results = mutableListOf<File>()
@@ -471,7 +494,12 @@ class FileRepository(private val context: Context) {
                 if (depth > 8) continue
                 val children = try { dir.listFiles() } catch (_: Exception) { null } ?: continue
                 for (child in children) {
-                    if (child.name.lowercase().contains(needle)) {
+                    if (Files.isSymbolicLink(child.toPath())) continue
+                    if (!includeHidden && FileUtils.isHidden(child)) continue
+                    val matchesType = category == null || (!child.isDirectory && FileUtils.categoryFor(child) == category)
+                    if (child.name.lowercase().contains(needle) && matchesType &&
+                        (minSize == 0L || (child.isFile && child.length() >= minSize)) &&
+                        (modifiedAfter == 0L || child.lastModified() >= modifiedAfter)) {
                         results.add(child)
                         if (results.size >= maxResults) break
                     }
@@ -544,6 +572,8 @@ class FileRepository(private val context: Context) {
             if (depth > maxDepth) continue
             val children = try { dir.listFiles() } catch (_: Exception) { null } ?: continue
             for (child in children) {
+                coroutineContext.ensureActive()
+                if (Files.isSymbolicLink(child.toPath())) continue
                 scanned++
                 if (scanned % 200 == 0L) onProgress(scanned)
                 if (child.isDirectory) {
@@ -588,6 +618,33 @@ class FileRepository(private val context: Context) {
             }
             groups.sortedByDescending { it.wastedBytes }
         }
+
+    /** Recheck contents immediately before moving a proposed duplicate to trash. */
+    suspend fun identicalFiles(first: File, second: File): Boolean = withContext(Dispatchers.IO) {
+        if (!first.isFile || !second.isFile || first.length() != second.length()) return@withContext false
+        try {
+            first.inputStream().buffered().use { left ->
+                second.inputStream().buffered().use { right ->
+                    val a = ByteArray(32 * 1024)
+                    val b = ByteArray(32 * 1024)
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val n = left.read(a)
+                        if (n < 0) return@withContext right.read() < 0
+                        var offset = 0
+                        while (offset < n) {
+                            val read = right.read(b, offset, n - offset)
+                            if (read < 0) return@withContext false
+                            offset += read
+                        }
+                        for (i in 0 until n) if (a[i] != b[i]) return@withContext false
+                    }
+                    @Suppress("UNREACHABLE_CODE") true
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { false }
+    }
 
     private fun computeHashBlocking(file: File, algorithm: String): String {
         val digest = MessageDigest.getInstance(algorithm)

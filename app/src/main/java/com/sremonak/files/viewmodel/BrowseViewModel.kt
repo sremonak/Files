@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class BrowseUiState(
@@ -40,6 +43,7 @@ class BrowseViewModel : ViewModel() {
     val state: StateFlow<BrowseUiState> = _state.asStateFlow()
 
     private var allItems: List<FileInfo> = emptyList()
+    private var loadJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -68,7 +72,8 @@ class BrowseViewModel : ViewModel() {
     }
 
     fun load(path: String, categoryFilter: FileCategory? = null) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, selection = emptySet(), categoryFilter = categoryFilter) }
             val favorites = settings.favorites.first()
             val raw: List<File> = if (categoryFilter != null) {
@@ -78,7 +83,7 @@ class BrowseViewModel : ViewModel() {
                 _state.update { it.copy(dirPath = dir.absolutePath) }
                 files.listFiles(dir)
             }
-            allItems = raw.map { files.toInfo(it, favorites) }
+            allItems = withContext(Dispatchers.IO) { raw.map { files.toInfo(it, favorites) } }
             applySort()
             _state.update { it.copy(loading = false) }
         }
@@ -193,15 +198,17 @@ class BrowseViewModel : ViewModel() {
         viewModelScope.launch {
             val dest = File(_state.value.dirPath)
             val count = if (clip.move) files.moveTo(clip.files, dest) else files.copyTo(clip.files, dest)
-            files.clearClipboard()
-            _state.update { it.copy(message = "Pasted $count item(s)") }
+            if (count == clip.files.size) files.clearClipboard()
+            _state.update { it.copy(message = "Pasted $count of ${clip.files.size} item(s)" + if (count < clip.files.size) "; clipboard retained for retry" else "") }
             reload()
         }
     }
 
     fun zipSelected() {
         viewModelScope.launch {
-            val zip = files.zipFiles(selectedFiles(), File(_state.value.dirPath))
+            val selected = selectedFiles()
+            val destination = if (_state.value.categoryFilter != null) selected.firstOrNull()?.parentFile else File(_state.value.dirPath)
+            val zip = if (destination != null) files.zipFiles(selected, destination) else null
             _state.update {
                 it.copy(
                     selection = emptySet(),

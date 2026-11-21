@@ -19,11 +19,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,10 +52,15 @@ fun RecycleBinScreen(
     viewModel: RecycleViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHost = remember { SnackbarHostState() }
+    LaunchedEffect(state.message) {
+        state.message?.let { snackbarHost.showSnackbar(it); viewModel.clearMessage() }
+    }
     var showEmptyConfirm by remember { mutableStateOf(false) }
     var deleteForeverTarget by remember { mutableStateOf<TrashEntry?>(null) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.trash_title)) },
@@ -83,7 +91,7 @@ fun RecycleBinScreen(
             state.entries.isEmpty() -> EmptyState(
                 icon = Icons.Filled.Delete,
                 title = stringResource(R.string.empty_trash),
-                subtitle = "Deleted files stay here until you restore or empty the trash"
+                subtitle = "Trash is app-private and may be auto-emptied. Uninstalling removes all items."
             )
             else -> Column(
                 modifier = Modifier

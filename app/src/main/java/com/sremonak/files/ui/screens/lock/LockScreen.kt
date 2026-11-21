@@ -94,7 +94,7 @@ fun LockScreen(
         androidx.compose.foundation.layout.Row(
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            repeat(4) { index ->
+            repeat(maxOf(4, state.pin.length)) { index ->
                 Box(
                     modifier = Modifier
                         .size(16.dp)
@@ -109,7 +109,7 @@ fun LockScreen(
         if (state.error) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                stringResource(R.string.lock_wrong_pin),
+                if (state.lockedOut) "Too many attempts. Wait 30 seconds and try again." else stringResource(R.string.lock_wrong_pin),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium
             )

@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class HomeUiState(
@@ -34,6 +37,8 @@ class HomeViewModel : ViewModel() {
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
+    private var scanJob: Job? = null
+
     init {
         refresh()
     }
@@ -49,15 +54,16 @@ class HomeViewModel : ViewModel() {
     private suspend fun loadRecentsAndFavorites() {
         val favPaths = settings.favorites.first()
         val recentPaths = settings.recents.first()
-        val favs = favPaths.map { File(it) }.filter { it.exists() }
-            .map { files.toInfo(it, favPaths) }
-        val recents = recentPaths.map { File(it) }.filter { it.exists() }
-            .map { files.toInfo(it, favPaths) }
+        val (favs, recents) = withContext(Dispatchers.IO) {
+            favPaths.map { File(it) }.filter { it.exists() }.map { files.toInfo(it, favPaths) } to
+                recentPaths.map { File(it) }.filter { it.exists() }.map { files.toInfo(it, favPaths) }
+        }
         _state.update { it.copy(favorites = favs, recents = recents) }
     }
 
     private fun startScan() {
-        viewModelScope.launch {
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
             _state.update { it.copy(scanning = true, scannedCount = 0) }
             val result = files.scanStorage(files.internalRoot()) { scanned ->
                 _state.update { it.copy(scannedCount = scanned) }

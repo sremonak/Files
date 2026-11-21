@@ -157,6 +157,24 @@ fun HomeScreen(
                 }
             }
 
+            // Show the first mounted removable volume when Android exposes it.
+            val removable = com.sremonak.files.FilesApp.instance.files.sdCardRoot()
+            if (removable != null) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { onOpenBrowse(removable.absolutePath) }) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Removable storage", style = MaterialTheme.typography.titleMedium)
+                                Text(removable.absolutePath, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Categories
             item {
                 SectionHeader(stringResource(R.string.categories_title))

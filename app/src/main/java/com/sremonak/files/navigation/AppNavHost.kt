@@ -2,6 +2,10 @@ package com.sremonak.files.navigation
 
 import android.net.Uri
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
@@ -10,6 +14,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,6 +71,8 @@ fun AppNavHost() {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasAccess = PermissionUtils.hasAllFilesAccess(context)
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                unlocked = false
             }
         }
         lifecycle.addObserver(observer)
@@ -87,42 +95,46 @@ fun AppNavHost() {
     val currentRoute = navBackStackEntry.value?.destination?.route
     val showBottomBar = currentRoute?.substringBefore("?") in TAB_ROUTES
 
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
+    val tabs = listOf(
+        Triple("home", R.string.nav_home, Icons.Filled.Home),
+        Triple("browse", R.string.nav_browse, Icons.Filled.FolderOpen),
+        Triple("search", R.string.nav_search, Icons.Filled.Search),
+        Triple("settings", R.string.nav_settings, Icons.Filled.Settings)
+    )
+    fun navigateTab(route: String) {
+        navController.navigate(route) {
+            popUpTo("home") { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 600.dp
+        Scaffold(bottomBar = {
+            if (showBottomBar && !wide) {
                 NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute?.startsWith("home") == true,
-                        onClick = { navController.navigate("home") { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true } },
-                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_home)) }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute?.startsWith("browse") == true,
-                        onClick = { navController.navigate("browse") { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true } },
-                        icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_browse)) }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute?.startsWith("search") == true,
-                        onClick = { navController.navigate("search") { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true } },
-                        icon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_search)) }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute?.startsWith("settings") == true,
-                        onClick = { navController.navigate("settings") { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true } },
-                        icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_settings)) }
-                    )
+                    tabs.forEach { (route, label, icon) ->
+                        NavigationBarItem(selected = currentRoute?.startsWith(route) == true,
+                            onClick = { navigateTab(route) }, icon = { Icon(icon, null) },
+                            label = { Text(stringResource(label)) })
+                    }
                 }
             }
-        }
-    ) { padding ->
+        }) { padding ->
+            Row(modifier = Modifier.padding(padding).fillMaxSize()) {
+                if (showBottomBar && wide) {
+                    NavigationRail {
+                        tabs.forEach { (route, label, icon) ->
+                            NavigationRailItem(selected = currentRoute?.startsWith(route) == true,
+                                onClick = { navigateTab(route) }, icon = { Icon(icon, null) },
+                                label = { Text(stringResource(label)) })
+                        }
+                    }
+                }
         NavHost(
             navController = navController,
             startDestination = "home",
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.weight(1f)
         ) {
             composable("home") {
                 HomeScreen(
@@ -196,5 +208,7 @@ fun AppNavHost() {
                 )
             }
         }
+    }
+    }
     }
 }

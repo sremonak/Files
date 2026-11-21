@@ -4,11 +4,17 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sremonak.files.data.model.SortOption
 import com.sremonak.files.ui.theme.ThemeMode
+import com.sremonak.files.util.PinHasher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -16,7 +22,11 @@ import java.security.MessageDigest
 
 private val Context.dataStore by preferencesDataStore(name = "files_pro_settings")
 
+enum class PinResult { VERIFIED, WRONG, LOCKED }
+
 class SettingsRepository(private val context: Context) {
+
+    private val pinMutex = Mutex()
 
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
@@ -32,6 +42,8 @@ class SettingsRepository(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val LOCK_ENABLED = booleanPreferencesKey("lock_enabled")
         val PIN_HASH = stringPreferencesKey("pin_hash")
+        val PIN_FAILURES = intPreferencesKey("pin_failures")
+        val PIN_LOCKED_UNTIL = longPreferencesKey("pin_locked_until")
         val BIOMETRIC = booleanPreferencesKey("biometric_enabled")
         val TRASH_DAYS = intPreferencesKey("trash_auto_days")
         val FAVORITES = stringSetPreferencesKey("favorites")
@@ -115,23 +127,56 @@ class SettingsRepository(private val context: Context) {
     suspend fun clearRecents() = edit { it.remove(Keys.RECENTS) }
 
     // ---------- PIN lock ----------
-    suspend fun setPin(pin: String) = edit {
-        it[Keys.PIN_HASH] = hashPin(pin)
-        it[Keys.LOCK_ENABLED] = true
+    suspend fun setPin(pin: String) = pinMutex.withLock {
+        require(pin.length in 4..8 && pin.all { it in '0'..'9' })
+        val hashed = withContext(Dispatchers.Default) { PinHasher.hash(pin) }
+        edit {
+            it[Keys.PIN_HASH] = hashed
+            it[Keys.LOCK_ENABLED] = true
+            it.remove(Keys.PIN_FAILURES)
+            it.remove(Keys.PIN_LOCKED_UNTIL)
+        }
     }
 
-    suspend fun verifyPin(pin: String): Boolean {
-        val stored = context.dataStore.data.first()[Keys.PIN_HASH] ?: return false
-        return stored == hashPin(pin)
+    suspend fun verifyPin(pin: String): PinResult = pinMutex.withLock {
+        val prefs = context.dataStore.data.first()
+        val stored = prefs[Keys.PIN_HASH] ?: return@withLock PinResult.WRONG
+        if ((prefs[Keys.PIN_LOCKED_UNTIL] ?: 0L) > System.currentTimeMillis()) return@withLock PinResult.LOCKED
+        val verified = withContext(Dispatchers.Default) {
+            if (PinHasher.isModern(stored)) PinHasher.verify(pin, stored)
+            else MessageDigest.isEqual(stored.toByteArray(), legacyHashPin(pin).toByteArray())
+        }
+        if (verified) {
+            val upgraded = if (!PinHasher.isModern(stored)) withContext(Dispatchers.Default) { PinHasher.hash(pin) } else null
+            edit {
+                if (upgraded != null) it[Keys.PIN_HASH] = upgraded
+                it.remove(Keys.PIN_FAILURES)
+                it.remove(Keys.PIN_LOCKED_UNTIL)
+            }
+            PinResult.VERIFIED
+        } else {
+            val failures = (prefs[Keys.PIN_FAILURES] ?: 0) + 1
+            edit {
+                if (failures >= 5) {
+                    it[Keys.PIN_FAILURES] = 0
+                    it[Keys.PIN_LOCKED_UNTIL] = System.currentTimeMillis() + 30_000L
+                } else it[Keys.PIN_FAILURES] = failures
+            }
+            if (failures >= 5) PinResult.LOCKED else PinResult.WRONG
+        }
     }
 
-    suspend fun clearLock() = edit {
-        it.remove(Keys.PIN_HASH)
-        it[Keys.LOCK_ENABLED] = false
-        it[Keys.BIOMETRIC] = false
+    suspend fun clearLock() = pinMutex.withLock {
+        edit {
+            it.remove(Keys.PIN_HASH)
+            it.remove(Keys.PIN_FAILURES)
+            it.remove(Keys.PIN_LOCKED_UNTIL)
+            it[Keys.LOCK_ENABLED] = false
+            it[Keys.BIOMETRIC] = false
+        }
     }
 
-    private fun hashPin(pin: String): String {
+    private fun legacyHashPin(pin: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest("filespro:$pin".toByteArray())
         return digest.joinToString("") { "%02x".format(it) }
     }

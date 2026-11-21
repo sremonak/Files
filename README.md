@@ -1,23 +1,28 @@
 # Files Pro
 
-An Android file manager project written in Kotlin with Jetpack Compose and Material 3. The source includes file browsing, search, file details, a text editor, ZIP tools, a recycle bin, a storage analyzer, favorites, theme settings and optional app locking. Some UI text remains in English when Bengali is selected.
+Android file manager built with Kotlin, Jetpack Compose and Material 3. It supports file browsing, filtered search, ZIP creation/extraction, storage analysis, trash, a text editor and an optional app lock. The UI is partly localized in English and Bengali. The app requires Android 8.0 or later.
 
-## Build a debug APK
+## Build
 
-1. Install Android Studio, JDK 17 and the Android SDK Platform 34. Ensure the machine can access Google Maven, Maven Central and the Gradle distribution service.
-2. Open this repository in Android Studio and allow Gradle to sync. Install any SDK components requested by Android Studio.
-3. Select **Build > Build Bundle(s) / APK(s) > Build APK(s)**. The debug APK is normally created at `app/build/outputs/apk/debug/app-debug.apk`.
+Install JDK 17, Android SDK Platform 36, and an Android Studio version compatible with AGP 8.10.1. Open the project and sync it, or run `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease`. Build output is under `app/build/outputs/apk/`. Release builds are unsigned unless the signing environment variables below are configured; unsigned APKs cannot be installed directly.
 
-Alternatively, on macOS/Linux run `./gradlew assembleDebug` from the project root. A release APK needs your own signing configuration.
+## GitHub Actions release signing
 
-## Permissions and limitations
+The **Build Android APK** workflow runs unit tests and uploads release and debug APK artifacts. It uses the owner's signing key only when all four GitHub Actions repository secrets exist:
 
-- Supports Android 8.0 (API 26) and later. On Android 11 and later, browsing shared storage requires the user to grant **All files access** in system settings. Google Play restricts this permission to qualifying apps; review its policies before publishing. On older Android releases the app requests storage permissions. Access to protected system and other apps' private directories is still restricted by Android.
-- The recycle bin stores files in app-private storage; uninstalling the app removes its contents. Trash can be automatically purged according to the configured retention period. Keep independent backups of important files.
-- App lock is a convenience gate, **not encryption**; it does not secure files against other apps with storage access. The PIN is stored as a hash, and the lock is applied when the app starts rather than serving as a secure vault.
-- Ringtone setting may require system permission to modify settings; functionality depends on Android version and device. Dynamic colors require Android 12 or later.
-- This project has not been built or tested on a device in the current environment. Treat it as unverified source, test on expendable files first, and verify file operations and permissions before relying on it.
+- `RELEASE_KEYSTORE_BASE64`: the complete keystore encoded as base64 on one line.
+- `RELEASE_STORE_PASSWORD`: the keystore password.
+- `RELEASE_KEY_ALIAS`: the signing key alias.
+- `RELEASE_KEY_PASSWORD`: the signing key password.
 
-## Build with GitHub Actions
+Add these privately under **GitHub repository → Settings → Secrets and variables → Actions → New repository secret**. Do not commit the keystore or passwords and do not paste them into chat. On Linux, `base64 -w 0 path/to/your-keystore.jks` produces the encoded value; on macOS use `base64 -i path/to/your-keystore.jks | tr -d '\n'`. Use the same key for future updates and keep secure backups of it. If any secret is missing, the workflow produces an **unsigned** release APK; this is not installable. After configuring secrets, manually run the workflow on the working branch and download `Files-Pro-release-apk` from the successful run. The debug artifact remains separately available.
 
-The **Build Android APK** workflow runs for pushes to this project's working branch, pull requests, and manual runs. To run it manually, open **Actions → Build Android APK → Run workflow**, select the branch, and run it. When the job succeeds, download **Files-Pro-debug-apk** from the run's Artifacts section. This is a debug-signed APK, not a Play Store release. Artifacts are kept for 30 days.
+For local signing, set `RELEASE_STORE_FILE` to an absolute keystore path, and set the other three environment variables listed above (no base64 variable needed).
+
+## Important limitations
+
+- All-files access is needed for the full shared-storage file manager on Android 11+. Google Play restricts this permission; review its policy and file the required declaration. Android still protects other apps' private files. Removable volume support depends on device permissions and must be tested on the target hardware.
+- Trash is app-private, subject to the configured auto-purge interval, and is deleted on uninstall. Keep independent backups.
+- App lock is not file encryption. An encrypted vault is not implemented. Existing PIN hashes are upgraded after successful unlock; the lock now reappears when the app returns from the background.
+- ZIP extraction is limited to 10,000 entries and 2 GiB. Search is currently limited to internal storage, eight folder levels and 500 matches. Network/cloud integration, full document previews, background transfers, full Bengali translation and tablet two-pane view are not yet implemented.
+- Automated unit tests cover some ZIP, formatting and PIN behavior, but device testing is still needed, especially before using the app on important files or publishing.

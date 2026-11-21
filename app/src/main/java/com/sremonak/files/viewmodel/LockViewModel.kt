@@ -3,6 +3,7 @@ package com.sremonak.files.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sremonak.files.FilesApp
+import com.sremonak.files.data.PinResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.launch
 data class LockUiState(
     val pin: String = "",
     val error: Boolean = false,
+    val lockedOut: Boolean = false,
     val checking: Boolean = false
 )
 
@@ -24,7 +26,7 @@ class LockViewModel : ViewModel() {
 
     fun appendDigit(digit: Char) {
         _state.update { state ->
-            if (state.pin.length >= 8) state else state.copy(pin = state.pin + digit, error = false)
+            if (state.pin.length >= 8) state else state.copy(pin = state.pin + digit, error = false, lockedOut = false)
         }
     }
 
@@ -45,10 +47,10 @@ class LockViewModel : ViewModel() {
             _state.update { it.copy(checking = true) }
             val ok = settings.verifyPin(pin)
             _state.update { it.copy(checking = false) }
-            if (ok) {
+            if (ok == PinResult.VERIFIED) {
                 onSuccess()
             } else {
-                _state.update { it.copy(error = true, pin = "") }
+                _state.update { it.copy(error = true, lockedOut = ok == PinResult.LOCKED, pin = "") }
             }
         }
     }

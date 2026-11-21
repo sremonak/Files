@@ -17,6 +17,7 @@ data class EditorUiState(
     val savedContent: String = "",
     val loading: Boolean = true,
     val error: String? = null,
+    val saveError: String? = null,
     val savedTick: Int = 0
 ) {
     val isDirty: Boolean get() = content != savedContent
@@ -51,6 +52,8 @@ class EditorViewModel : ViewModel() {
         }
     }
 
+    fun clearSaveError() { _state.update { it.copy(saveError = null) } }
+
     fun update(text: String) {
         _state.update { it.copy(content = text) }
     }
@@ -61,16 +64,25 @@ class EditorViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = withContext(Dispatchers.IO) {
                 try {
-                    f.writeText(text, Charsets.UTF_8)
-                    true
+                    val parent = f.parentFile ?: return@withContext false
+                    val temp = File.createTempFile(".filespro-", ".tmp", parent)
+                    try {
+                        temp.outputStream().use { output ->
+                            output.write(text.toByteArray(Charsets.UTF_8))
+                            output.fd.sync()
+                        }
+                        temp.renameTo(f)
+                    } finally {
+                        if (temp.exists()) temp.delete()
+                    }
                 } catch (_: Exception) {
                     false
                 }
             }
             if (ok) {
-                _state.update { it.copy(savedContent = text, savedTick = it.savedTick + 1) }
+                _state.update { it.copy(savedContent = text, savedTick = it.savedTick + 1, saveError = null) }
             } else {
-                _state.update { it.copy(error = "Save failed") }
+                _state.update { it.copy(saveError = "Save failed; original file was kept") }
             }
         }
     }
