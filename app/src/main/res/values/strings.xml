@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Files Pro</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_browse">Browse</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common actions -->
+    <string name="action_share">Share</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_move">Move</string>
+    <string name="action_paste">Paste</string>
+    <string name="action_open">Open</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_details">Details</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_new_folder">New folder</string>
+    <string name="action_new_file">New file</string>
+    <string name="action_zip">Compress to ZIP</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_empty">Empty</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_done">Done</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_yes">Yes</string>
+    <string name="action_no">No</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_behavior">Behavior</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_storage">Storage</string>
+    <string name="settings_about">About</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- Home -->
+    <string name="storage_title">Storage</string>
+    <string name="recent_title">Recent files</string>
+    <string name="favorites_title">Favorites</string>
+    <string name="categories_title">Categories</string>
+    <string name="quick_actions_title">Quick actions</string>
+
+    <!-- Search / empty states -->
+    <string name="search_hint">Search files…</string>
+    <string name="search_no_results">No results found</string>
+    <string name="empty_folder">This folder is empty</string>
+    <string name="empty_trash">Trash is empty</string>
+    <string name="empty_favorites">No favorites yet</string>
+    <string name="empty_recents">No recent files yet</string>
+
+    <!-- Permission onboarding -->
+    <string name="permission_title">Permission required</string>
+    <string name="permission_desc">Files Pro needs access to your storage to browse, view and manage your files. Grant all-files access to unlock the full experience.</string>
+    <string name="permission_button">Grant access</string>
+    <string name="permission_settings_button">Open settings</string>
+
+    <!-- App lock -->
+    <string name="lock_title">App locked</string>
+    <string name="lock_subtitle">Enter your PIN to continue</string>
+    <string name="lock_wrong_pin">Wrong PIN, try again</string>
+    <string name="lock_biometric">Use biometrics</string>
+
+    <!-- Tools -->
+    <string name="trash_title">Trash</string>
+    <string name="analyzer_title">Storage analyzer</string>
+    <string name="duplicates_title">Duplicate files</string>
+    <string name="large_files_title">Large files</string>
+
+    <!-- Screens -->
+    <string name="details_title">File details</string>
+    <string name="editor_title">Editor</string>
+    <string name="browse_title">Browse</string>
+    <string name="version_label">Version</string>
+</resources>

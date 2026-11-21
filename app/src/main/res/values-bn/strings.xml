@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ফাইলস প্রো</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">হোম</string>
+    <string name="nav_browse">ব্রাউজ</string>
+    <string name="nav_search">খুঁজুন</string>
+    <string name="nav_settings">সেটিংস</string>
+
+    <!-- Common actions -->
+    <string name="action_share">শেয়ার</string>
+    <string name="action_delete">মুছুন</string>
+    <string name="action_cancel">বাতিল</string>
+    <string name="action_save">সংরক্ষণ</string>
+    <string name="action_rename">নাম বদলান</string>
+    <string name="action_copy">কপি</string>
+    <string name="action_move">সরান</string>
+    <string name="action_paste">পেস্ট</string>
+    <string name="action_open">খুলুন</string>
+    <string name="action_edit">সম্পাদনা</string>
+    <string name="action_details">বিস্তারিত</string>
+    <string name="action_select_all">সব নির্বাচন</string>
+    <string name="action_new_folder">নতুন ফোল্ডার</string>
+    <string name="action_new_file">নতুন ফাইল</string>
+    <string name="action_zip">ZIP করুন</string>
+    <string name="action_restore">পুনরুদ্ধার</string>
+    <string name="action_empty">খালি করুন</string>
+    <string name="action_retry">আবার চেষ্টা</string>
+    <string name="action_done">সম্পন্ন</string>
+    <string name="action_clear">মুছুন</string>
+    <string name="action_yes">হ্যাঁ</string>
+    <string name="action_no">না</string>
+
+    <!-- Settings -->
+    <string name="settings_title">সেটিংস</string>
+    <string name="settings_appearance">চেহারা</string>
+    <string name="settings_behavior">আচরণ</string>
+    <string name="settings_security">নিরাপত্তা</string>
+    <string name="settings_storage">স্টোরেজ</string>
+    <string name="settings_about">অ্যাপ সম্পর্কে</string>
+    <string name="theme_system">সিস্টেম</string>
+    <string name="theme_light">লাইট</string>
+    <string name="theme_dark">ডার্ক</string>
+
+    <!-- Home -->
+    <string name="storage_title">স্টোরেজ</string>
+    <string name="recent_title">সাম্প্রতিক ফাইল</string>
+    <string name="favorites_title">প্রিয়</string>
+    <string name="categories_title">ক্যাটাগরি</string>
+    <string name="quick_actions_title">দ্রুত অ্যাকশন</string>
+
+    <!-- Search / empty states -->
+    <string name="search_hint">ফাইল খুঁজুন…</string>
+    <string name="search_no_results">কিছু পাওয়া যায়নি</string>
+    <string name="empty_folder">এই ফোল্ডার খালি</string>
+    <string name="empty_trash">ট্র্যাশ খালি</string>
+    <string name="empty_favorites">এখনো কোনো প্রিয় নেই</string>
+    <string name="empty_recents">এখনো কোনো সাম্প্রতিক নেই</string>
+
+    <!-- Permission onboarding -->
+    <string name="permission_title">অনুমতি প্রয়োজন</string>
+    <string name="permission_desc">ফাইলস প্রো-কে আপনার ফাইল ব্রাউজ, দেখা ও পরিচালনা করতে স্টোরেজ অ্যাক্সেস প্রয়োজন। সম্পূর্ণ অভিজ্ঞতার জন্য অল-ফাইলস অ্যাক্সেস দিন।</string>
+    <string name="permission_button">অনুমতি দিন</string>
+    <string name="permission_settings_button">সেটিংস খুলুন</string>
+
+    <!-- App lock -->
+    <string name="lock_title">অ্যাপ লক করা</string>
+    <string name="lock_subtitle">এগিয়ে যেতে আপনার PIN দিন</string>
+    <string name="lock_wrong_pin">ভুল PIN, আবার চেষ্টা করুন</string>
+    <string name="lock_biometric">বায়োমেট্রিক ব্যবহার করুন</string>
+
+    <!-- Tools -->
+    <string name="trash_title">ট্র্যাশ</string>
+    <string name="analyzer_title">স্টোরেজ বিশ্লেষক</string>
+    <string name="duplicates_title">ডুপ্লিকেট ফাইল</string>
+    <string name="large_files_title">বড় ফাইল</string>
+
+    <!-- Screens -->
+    <string name="details_title">ফাইলের বিবরণ</string>
+    <string name="editor_title">সম্পাদক</string>
+    <string name="browse_title">ব্রাউজ</string>
+    <string name="version_label">সংস্করণ</string>
+</resources>
