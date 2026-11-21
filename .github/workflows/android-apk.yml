@@ -24,7 +24,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee build.log
+      - name: Report build diagnostics
+        if: failure()
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import re
+          log = Path('build.log')
+          if log.exists():
+              lines = log.read_text(errors='replace').splitlines()
+              relevant = [line for line in lines if re.search(r'(^e: |^error: |^\* What went wrong:|^> |^Caused by:|FAILURE:|^Execution failed)', line, re.I)]
+              text = '\n'.join(relevant[:40]) or '\n'.join(lines[-40:])
+              text = text[:12000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=Gradle build diagnostics::{text}')
+          PYCODE
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
