@@ -129,11 +129,11 @@ fun TextEditorScreen(
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(
                                 text = { Text("Increase font size") },
-                                onClick = { showMenu = false; fontSize = (fontSize + 2.sp).coerceAtMost(28.sp) }
+                                onClick = { showMenu = false; fontSize = (fontSize.value + 2f).coerceAtMost(28f).sp }
                             )
                             DropdownMenuItem(
                                 text = { Text("Decrease font size") },
-                                onClick = { showMenu = false; fontSize = (fontSize - 2.sp).coerceAtLeast(10.sp) }
+                                onClick = { showMenu = false; fontSize = (fontSize.value - 2f).coerceAtLeast(10f).sp }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_share)) },
