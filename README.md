@@ -4,7 +4,7 @@ Android file manager built with Kotlin, Jetpack Compose and Material 3. It suppo
 
 ## Build
 
-Install JDK 17, Android SDK Platform 36, and an Android Studio version compatible with AGP 8.10.1. Open the project and sync it, or run `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease`. Build output is under `app/build/outputs/apk/`. Release builds are unsigned unless the signing environment variables below are configured; unsigned APKs cannot be installed directly.
+Install JDK 17, Android SDK Platform 36, and an Android Studio version compatible with AGP 8.10.1. Open the project and sync it, or run `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease`. Build output is under `app/build/outputs/apk/`. Local release builds are unsigned unless the signing environment variables below are configured; unsigned APKs cannot be installed directly.
 
 ## GitHub Actions release signing
 
@@ -15,7 +15,7 @@ The **Build Android APK** workflow runs unit tests and uploads release and debug
 - `RELEASE_KEY_ALIAS`: the signing key alias.
 - `RELEASE_KEY_PASSWORD`: the signing key password.
 
-Add these privately under **GitHub repository → Settings → Secrets and variables → Actions → New repository secret**. Do not commit the keystore or passwords and do not paste them into chat. On Linux, `base64 -w 0 path/to/your-keystore.jks` produces the encoded value; on macOS use `base64 -i path/to/your-keystore.jks | tr -d '\n'`. Use the same key for future updates and keep secure backups of it. If any secret is missing, the workflow produces an **unsigned** release APK; this is not installable. After configuring secrets, manually run the workflow on the working branch and download `Files-Pro-release-apk` from the successful run. The debug artifact remains separately available.
+Add these privately under **GitHub repository → Settings → Secrets and variables → Actions → New repository secret**. Do not commit the keystore or passwords and do not paste them into chat. On Linux, `base64 -w 0 path/to/your-keystore.jks` produces the encoded value; on macOS use `base64 -i path/to/your-keystore.jks | tr -d '\n'`. Use the same key for future updates and keep secure backups of it. If no secrets are configured, the workflow creates a fresh temporary signing key and produces an installable `Files-Pro-release-temporary-key` artifact for testing. The key is discarded after the run: a later build has a different signature and cannot update this APK, and uninstalling deletes app-private data including trash. Never use this temporary key for a production release. If only some secrets are configured, the workflow fails rather than silently using the wrong key. After configuring all secrets, manually run the workflow on the working branch and download `Files-Pro-release-owner-key`. The debug artifact remains separately available.
 
 For local signing, set `RELEASE_STORE_FILE` to an absolute keystore path, and set the other three environment variables listed above (no base64 variable needed).
 

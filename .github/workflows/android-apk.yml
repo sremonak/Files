@@ -29,11 +29,29 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Configure release signing
-        if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' && env.RELEASE_STORE_PASSWORD != '' && env.RELEASE_KEY_ALIAS != '' && env.RELEASE_KEY_PASSWORD != '' }}
         shell: bash
         run: |
+          set -euo pipefail
           umask 077
-          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          if [[ -n "$RELEASE_KEYSTORE_BASE64" && -n "$RELEASE_STORE_PASSWORD" && -n "$RELEASE_KEY_ALIAS" && -n "$RELEASE_KEY_PASSWORD" ]]; then
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            echo "SIGNING_MODE=owner-key" >> "$GITHUB_ENV"
+            echo "Owner signing key configured." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ -n "$RELEASE_KEYSTORE_BASE64$RELEASE_STORE_PASSWORD$RELEASE_KEY_ALIAS$RELEASE_KEY_PASSWORD" ]]; then
+            echo "::error::Release signing secrets are incomplete. Configure all four secrets, or remove all four to use a temporary key."
+            exit 1
+          else
+            password="$(openssl rand -hex 24)"
+            echo "::add-mask::$password"
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.keystore" -storetype PKCS12 \
+              -storepass "$password" -keypass "$password" -alias temporary \
+              -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Temporary Files Pro build" -noprompt
+            echo "RELEASE_STORE_PASSWORD=$password" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_PASSWORD=$password" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_ALIAS=temporary" >> "$GITHUB_ENV"
+            echo "SIGNING_MODE=temporary-key" >> "$GITHUB_ENV"
+            echo "Temporary signing key: this APK is for testing only. Every run has a different key and cannot update an earlier installation. Uninstalling deletes app-private data including trash." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
       - name: Test and build APKs
         run: |
@@ -53,11 +71,21 @@ jobs:
               text = text[:12000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print(f'::error title=Gradle build diagnostics::{text}')
           PYCODE
+      - name: Verify release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          test -n "$APK_SIGNER"
+          "$APK_SIGNER" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          sha256sum app/build/outputs/apk/release/app-release.apk | tee app/build/outputs/apk/release/SHA256SUMS.txt
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: Files-Pro-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: Files-Pro-release-${{ env.SIGNING_MODE }}
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
       - name: Upload debug APK
