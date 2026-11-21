@@ -6,18 +6,36 @@ plugins {
 
 android {
     namespace = "com.sremonak.files"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.sremonak.files"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
     }
 
+    val releaseStoreFile = System.getenv("RELEASE_STORE_FILE")
+    val releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+    val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+        .all { !it.isNullOrBlank() }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("production") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("production")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -70,5 +88,6 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
 
+    testImplementation("junit:junit:4.13.2")
     debugImplementation(libs.compose.ui.tooling)
 }

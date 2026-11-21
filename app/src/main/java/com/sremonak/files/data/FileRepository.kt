@@ -16,6 +16,7 @@ import com.sremonak.files.data.model.ScanResult
 import com.sremonak.files.data.model.StorageStats
 import com.sremonak.files.data.model.TrashEntry
 import com.sremonak.files.util.FileUtils
+import com.sremonak.files.util.SafeZip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
@@ -51,10 +52,10 @@ class FileRepository(private val context: Context) {
     fun internalRoot(): File = Environment.getExternalStorageDirectory()
 
     fun sdCardRoot(): File? {
-        val external = context.getExternalFilesDir(null) ?: return null
-        val rootPath = external.absolutePath.substringBefore("/Android/data")
-        val root = File(rootPath)
-        return if (root.exists() && root.canRead()) root else null
+        return context.getExternalFilesDirs(null).drop(1).filterNotNull().mapNotNull { external ->
+            val path = external.absolutePath.substringBefore("/Android/data", "")
+            if (path.isBlank()) null else File(path)
+        }.firstOrNull { it.exists() && it.canRead() }
     }
 
     fun downloadsDir(): File = File(internalRoot(), "Download")
@@ -485,7 +486,7 @@ class FileRepository(private val context: Context) {
 
     // ---------- ZIP ----------
     suspend fun zipFiles(files: List<File>, destDir: File): File? = withContext(Dispatchers.IO) {
-        if (files.isEmpty()) return@withContext null
+        if (files.isEmpty() || !destDir.isDirectory || files.any { !it.exists() || destinationInsideSource(it, destDir) }) return@withContext null
         val zipName = if (files.size == 1) {
             val base = files[0].name.substringBeforeLast(".")
             "$base.zip"
@@ -519,32 +520,9 @@ class FileRepository(private val context: Context) {
     }
 
     suspend fun unzip(zip: File, destDir: File): File? = withContext(Dispatchers.IO) {
-        val base = zip.nameWithoutExtension
-        val targetDir = FileUtils.uniqueFileIn(destDir, base)
-        targetDir.mkdirs()
-        try {
-            ZipInputStream(zip.inputStream()).use { input ->
-                var entry = input.nextEntry
-                while (entry != null) {
-                    val outFile = File(targetDir, entry.name)
-                    val destCanonical = targetDir.canonicalPath
-                    if (!outFile.canonicalPath.startsWith(destCanonical + File.separator)) {
-                        throw java.io.IOException("Unsafe ZIP entry")
-                    }
-                    if (entry.isDirectory) {
-                        outFile.mkdirs()
-                    } else {
-                        outFile.parentFile?.mkdirs()
-                        outFile.outputStream().use { out -> input.copyTo(out) }
-                    }
-                    entry = input.nextEntry
-                }
-            }
-            targetDir
-        } catch (_: Exception) {
-            targetDir.deleteRecursively()
-            null
-        }
+        if (!destDir.isDirectory || !zip.isFile) return@withContext null
+        val target = FileUtils.uniqueFileIn(destDir, zip.nameWithoutExtension)
+        if (SafeZip.extract(zip, target)) target else null
     }
 
     // ---------- Storage scan / analyzer ----------

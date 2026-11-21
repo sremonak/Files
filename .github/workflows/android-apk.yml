@@ -12,7 +12,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -23,10 +28,17 @@ jobs:
           java-version: '17'
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Build debug APK
+      - name: Configure release signing
+        if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' && env.RELEASE_STORE_PASSWORD != '' && env.RELEASE_KEY_ALIAS != '' && env.RELEASE_KEY_PASSWORD != '' }}
+        shell: bash
+        run: |
+          umask 077
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+      - name: Test and build APKs
         run: |
           set -o pipefail
-          ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee build.log
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease --stacktrace 2>&1 | tee build.log
       - name: Report build diagnostics
         if: failure()
         run: |
@@ -36,15 +48,22 @@ jobs:
           log = Path('build.log')
           if log.exists():
               lines = log.read_text(errors='replace').splitlines()
-              relevant = [line for line in lines if re.search(r'(^e: |^error: |^\* What went wrong:|^> |^Caused by:|FAILURE:|^Execution failed)', line, re.I)]
+              relevant = [line for line in lines if re.search(r'(^e: |^error: |^\* What went wrong:|^> [^T]|^Caused by:|FAILURE:|^Execution failed)', line, re.I)]
               text = '\n'.join(relevant[:40]) or '\n'.join(lines[-40:])
               text = text[:12000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print(f'::error title=Gradle build diagnostics::{text}')
           PYCODE
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Files-Pro-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: Files-Pro-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
