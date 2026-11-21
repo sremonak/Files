@@ -81,4 +81,8 @@
     <string name="editor_title">সম্পাদক</string>
     <string name="browse_title">ব্রাউজ</string>
     <string name="version_label">সংস্করণ</string>
+    <string name="batch_rename">একসাথে নাম বদলান</string>
+    <string name="batch_prefix">নামের শুরু</string>
+    <string name="batch_preview">পূর্বরূপ</string>
+    <string name="transfer_progress">স্থানান্তর হচ্ছে %1$d / %2$d টি</string>
 </resources>

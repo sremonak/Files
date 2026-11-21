@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sremonak.files.FilesApp
 import com.sremonak.files.data.model.FileCategory
+import com.sremonak.files.util.BatchRename
 import com.sremonak.files.data.model.FileInfo
 import com.sremonak.files.data.model.SortOption
 import com.sremonak.files.data.model.ViewMode
@@ -29,7 +30,8 @@ data class BrowseUiState(
     val gridColumns: Int = 3,
     val loading: Boolean = true,
     val message: String? = null,
-    val categoryFilter: FileCategory? = null
+    val categoryFilter: FileCategory? = null,
+    val transferProgress: Pair<Int, Int>? = null
 ) {
     val isSelectionMode: Boolean get() = selection.isNotEmpty()
 }
@@ -165,7 +167,9 @@ class BrowseViewModel : ViewModel() {
 
     fun rename(path: String, newName: String) {
         viewModelScope.launch {
-            val ok = files.rename(File(path), newName)
+            val source = File(path)
+            val ok = files.rename(source, newName)
+            if (ok) source.parentFile?.let { settings.relocatePaths(path, File(it, newName.trim()).absolutePath) }
             _state.update { it.copy(message = if (ok) "Renamed" else "Rename failed (name may exist)") }
             reload()
         }
@@ -194,12 +198,46 @@ class BrowseViewModel : ViewModel() {
 
     fun paste() {
         val clip = files.clipboard
-        if (!clip.isActive) return
+        if (!clip.isActive || _state.value.transferProgress != null) return
+        val destination = File(_state.value.dirPath)
+        _state.update { it.copy(transferProgress = 0 to clip.files.size) }
         viewModelScope.launch {
-            val dest = File(_state.value.dirPath)
-            val count = if (clip.move) files.moveTo(clip.files, dest) else files.copyTo(clip.files, dest)
-            if (count == clip.files.size) files.clearClipboard()
-            _state.update { it.copy(message = "Pasted $count of ${clip.files.size} item(s)" + if (count < clip.files.size) "; clipboard retained for retry" else "") }
+            try {
+                val report = files.transferBatch(clip.files, destination, clip.move) { completed, total ->
+                    _state.update { it.copy(transferProgress = completed to total) }
+                }
+                if (clip.move) report.succeeded.forEach { (source, target) ->
+                    settings.relocatePaths(source.absolutePath, target.absolutePath)
+                }
+                if (report.failed.isEmpty()) files.clearClipboard() else files.setClipboard(report.failed, clip.move)
+                _state.update {
+                    it.copy(message = "Pasted ${report.succeeded.size} of ${clip.files.size} item(s)" +
+                        if (report.failed.isNotEmpty()) "; ${report.failed.size} failed and remain in clipboard" else "")
+                }
+                reload()
+            } finally {
+                _state.update { it.copy(transferProgress = null) }
+            }
+        }
+    }
+
+    fun batchRename(prefix: String) {
+        val selected = selectedFiles()
+        viewModelScope.launch {
+            val plan = try { withContext(Dispatchers.IO) { BatchRename.plan(selected, prefix) } }
+            catch (e: Exception) {
+                _state.update { it.copy(message = e.message ?: "Cannot rename selection") }
+                return@launch
+            }
+            var succeeded = 0
+            for ((source, target) in plan) {
+                if (source.absolutePath == target.absolutePath) succeeded++
+                else if (files.rename(source, target.name)) {
+                    settings.relocatePaths(source.absolutePath, target.absolutePath)
+                    succeeded++
+                }
+            }
+            _state.update { it.copy(message = "Renamed $succeeded of ${plan.size} files") }
             reload()
         }
     }

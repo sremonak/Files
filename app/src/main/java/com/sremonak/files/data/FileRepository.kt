@@ -1,6 +1,9 @@
 package com.sremonak.files.data
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import android.media.MediaMetadataRetriever
 import android.os.Environment
 import android.os.StatFs
@@ -37,7 +40,7 @@ class FileRepository(private val context: Context) {
     private val trashDir: File = File(context.filesDir, "trash").apply { mkdirs() }
 
     /** In-memory clipboard shared across screens (copy / move / paste). */
-    var clipboard: ClipboardState = ClipboardState()
+    var clipboard: ClipboardState by mutableStateOf(ClipboardState())
         private set
 
     fun setClipboard(files: List<File>, move: Boolean) {
@@ -325,29 +328,30 @@ class FileRepository(private val context: Context) {
         try { File(dir, trimmed).createNewFile() } catch (_: Exception) { false }
     }
 
-    suspend fun copyTo(files: List<File>, destDir: File): Int = withContext(Dispatchers.IO) {
-        if (!destDir.isDirectory) return@withContext 0
-        var count = 0
-        for (source in files) {
-            try {
-                if (!source.exists() || destinationInsideSource(source, destDir)) continue
-                if (copyComplete(source, FileUtils.uniqueFileIn(destDir, source.name))) count++
-            } catch (_: Exception) { }
-        }
-        count
-    }
+    data class TransferReport(val succeeded: List<Pair<File, File>>, val failed: List<File>)
 
-    suspend fun moveTo(files: List<File>, destDir: File): Int = withContext(Dispatchers.IO) {
-        if (!destDir.isDirectory) return@withContext 0
-        var count = 0
-        for (source in files) {
-            try {
-                if (!source.exists() || destinationInsideSource(source, destDir) ||
-                    source.parentFile?.canonicalFile == destDir.canonicalFile) continue
-                if (transfer(source, FileUtils.uniqueFileIn(destDir, source.name))) count++
-            } catch (_: Exception) { }
+    suspend fun transferBatch(
+        sources: List<File>, destDir: File, move: Boolean,
+        onProgress: (Int, Int) -> Unit = { _, _ -> }
+    ): TransferReport = withContext(Dispatchers.IO) {
+        val succeeded = mutableListOf<Pair<File, File>>()
+        val failed = mutableListOf<File>()
+        for ((index, source) in sources.withIndex()) {
+            coroutineContext.ensureActive()
+            var destination: File? = null
+            val ok = try {
+                if (!destDir.isDirectory || !source.exists() || destinationInsideSource(source, destDir) ||
+                    (move && source.parentFile?.canonicalFile == destDir.canonicalFile)) false
+                else {
+                    val target = FileUtils.uniqueFileIn(destDir, source.name)
+                    destination = target
+                    if (move) transfer(source, target) else copyComplete(source, target)
+                }
+            } catch (_: Exception) { false }
+            if (ok && destination != null) succeeded.add(source to destination) else failed.add(source)
+            onProgress(index + 1, sources.size)
         }
-        count
+        TransferReport(succeeded, failed)
     }
 
     // ---------- Trash ----------

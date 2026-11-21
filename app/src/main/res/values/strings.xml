@@ -81,4 +81,8 @@
     <string name="editor_title">Editor</string>
     <string name="browse_title">Browse</string>
     <string name="version_label">Version</string>
+    <string name="batch_rename">Batch rename</string>
+    <string name="batch_prefix">Name prefix</string>
+    <string name="batch_preview">Preview</string>
+    <string name="transfer_progress">Transferring %1$d of %2$d items</string>
 </resources>

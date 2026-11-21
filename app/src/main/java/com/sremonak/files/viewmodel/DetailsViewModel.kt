@@ -17,7 +17,8 @@ data class DetailsUiState(
     val hashes: Map<String, String> = emptyMap(),
     val computing: String? = null,
     val isFavorite: Boolean = false,
-    val loading: Boolean = true
+    val loading: Boolean = true,
+    val message: String? = null
 )
 
 class DetailsViewModel : ViewModel() {
@@ -78,18 +79,22 @@ class DetailsViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = files.rename(file, newName)
             if (ok) {
-                currentFile = File(file.parent, newName)
+                currentFile = File(file.parent, newName.trim())
+                settings.relocatePaths(file.absolutePath, currentFile!!.absolutePath)
                 load(currentFile!!.absolutePath)
-            }
+            } else _state.update { it.copy(message = "Rename failed. Check the name and storage access.") }
             onDone(ok)
         }
     }
 
-    fun deleteToTrash(onDone: () -> Unit) {
+    fun clearMessage() { _state.update { it.copy(message = null) } }
+
+    fun deleteToTrash(onDone: (Boolean) -> Unit) {
         val file = currentFile ?: return
         viewModelScope.launch {
-            files.deleteToTrash(listOf(file))
-            onDone()
+            val ok = files.deleteToTrash(listOf(file)) == 1
+            if (!ok) _state.update { it.copy(message = "Could not move item to trash. Check available space and access.") }
+            onDone(ok)
         }
     }
 }

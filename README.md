@@ -1,6 +1,6 @@
 # Files Pro
 
-Android file manager built with Kotlin, Jetpack Compose and Material 3. It supports file browsing, filtered search, ZIP creation/extraction, storage analysis, trash, a text editor and an optional app lock. The UI is partly localized in English and Bengali. The app requires Android 8.0 or later.
+Android file manager built with Kotlin, Jetpack Compose and Material 3. It supports file browsing, filtered search, numbered batch rename with preview, copy/move progress, ZIP creation/extraction, storage analysis, trash, a text editor and an optional app lock. The UI is partly localized in English and Bengali. The app requires Android 8.0 or later.
 
 ## Build
 

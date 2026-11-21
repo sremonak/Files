@@ -41,6 +41,9 @@ import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,6 +90,7 @@ import com.sremonak.files.ui.components.EmptyState
 import com.sremonak.files.ui.components.FileGridItem
 import com.sremonak.files.ui.components.FileListItem
 import com.sremonak.files.ui.components.TextInputDialog
+import com.sremonak.files.util.BatchRename
 import com.sremonak.files.util.FileUtils
 import com.sremonak.files.util.IntentUtils
 import com.sremonak.files.viewmodel.BrowseViewModel
@@ -118,6 +122,7 @@ fun BrowseScreen(
     var showNewFolder by remember { mutableStateOf(false) }
     var showNewFile by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showBatchRename by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialPath, categoryFilter) { viewModel.load(initialPath, categoryFilter) }
 
@@ -328,6 +333,11 @@ fun BrowseScreen(
                                 }
                             }
                         }
+                        if (selectedInfos.size > 1 && selectedInfos.all { !it.isDirectory }) {
+                            SelectionAction(Icons.Filled.Edit, stringResource(R.string.batch_rename)) {
+                                showBatchRename = true
+                            }
+                        }
                         SelectionAction(Icons.Filled.Share, stringResource(R.string.action_share)) {
                             IntentUtils.shareFiles(context, viewModel.selectedFiles())
                         }
@@ -371,16 +381,22 @@ fun BrowseScreen(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        TextButton(onClick = { viewModel.paste() }) {
+                        TextButton(onClick = { viewModel.paste() }, enabled = state.transferProgress == null) {
                             Text(stringResource(R.string.action_paste))
                         }
-                        IconButton(onClick = { files.clearClipboard() }) {
+                        IconButton(onClick = { files.clearClipboard() }, enabled = state.transferProgress == null) {
                             Icon(Icons.Filled.Close, contentDescription = "Dismiss")
                         }
                     }
                 }
             }
 
+            state.transferProgress?.let { (done, total) ->
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Text(stringResource(R.string.transfer_progress, done, total), style = MaterialTheme.typography.labelMedium)
+                    LinearProgressIndicator(progress = if (total == 0) 0f else done.toFloat() / total, modifier = Modifier.fillMaxWidth())
+                }
+            }
             when {
                 state.loading -> Box(
                     modifier = Modifier.fillMaxSize(),
@@ -452,6 +468,13 @@ fun BrowseScreen(
         }
 
         // Dialogs
+        if (showBatchRename) {
+            BatchRenameDialog(
+                selected = selectedInfos.map { it.file },
+                onConfirm = { viewModel.batchRename(it); showBatchRename = false },
+                onDismiss = { showBatchRename = false }
+            )
+        }
         renameTarget?.let { target ->
             TextInputDialog(
                 title = stringResource(R.string.action_rename),
@@ -490,6 +513,38 @@ fun BrowseScreen(
             )
         }
     }
+}
+
+@Composable
+private fun BatchRenameDialog(selected: List<File>, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var prefix by remember { mutableStateOf("") }
+    val plan = remember(selected, prefix) { runCatching { BatchRename.plan(selected, prefix) } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.batch_rename)) },
+        text = {
+            Column {
+                OutlinedTextField(value = prefix, onValueChange = { prefix = it }, singleLine = true,
+                    label = { Text(stringResource(R.string.batch_prefix)) })
+                if (prefix.isNotBlank()) {
+                    val targets = plan.getOrNull()
+                    if (targets != null) {
+                        Text(stringResource(R.string.batch_preview), style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(top = 12.dp))
+                        targets.take(3).forEach { (_, target) -> Text(target.name, maxLines = 1) }
+                        if (targets.size > 3) Text("… +${targets.size - 3}")
+                    } else {
+                        Text(plan.exceptionOrNull()?.message ?: "Invalid name", color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(prefix) }, enabled = plan.isSuccess) { Text(stringResource(R.string.action_rename)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
+    )
 }
 
 @Composable

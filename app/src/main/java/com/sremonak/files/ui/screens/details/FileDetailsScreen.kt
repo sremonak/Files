@@ -86,6 +86,9 @@ fun FileDetailsScreen(
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
+    LaunchedEffect(state.message) {
+        state.message?.let { snackbarHost.showSnackbar(it); viewModel.clearMessage() }
+    }
     LaunchedEffect(path) {
         viewModel.load(path)
         viewModel.recordRecent()
@@ -341,7 +344,7 @@ fun FileDetailsScreen(
                 title = stringResource(R.string.action_delete),
                 message = "Move this item to trash?",
                 confirmText = stringResource(R.string.action_delete),
-                onConfirm = { viewModel.deleteToTrash { onBack() } },
+                onConfirm = { viewModel.deleteToTrash { ok -> showDeleteConfirm = false; if (ok) onBack() } },
                 onDismiss = { showDeleteConfirm = false }
             )
         }

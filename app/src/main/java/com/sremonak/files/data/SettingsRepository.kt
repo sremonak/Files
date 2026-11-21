@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.sremonak.files.data.model.SortOption
 import com.sremonak.files.ui.theme.ThemeMode
 import com.sremonak.files.util.PinHasher
+import com.sremonak.files.util.PathRemapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -125,6 +126,15 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun clearRecents() = edit { it.remove(Keys.RECENTS) }
+
+    suspend fun relocatePaths(oldPath: String, newPath: String) = edit { prefs ->
+        fun remap(path: String) = PathRemapper.relocate(path, oldPath, newPath)
+        prefs[Keys.FAVORITES]?.let { prefs[Keys.FAVORITES] = it.map(::remap).toSet() }
+        prefs[Keys.RECENTS]?.let { raw ->
+            prefs[Keys.RECENTS] = raw.split("\n").filter { it.isNotBlank() }.map(::remap).distinct().joinToString("\n")
+        }
+        prefs[Keys.HOME_DIR]?.let { prefs[Keys.HOME_DIR] = remap(it) }
+    }
 
     // ---------- PIN lock ----------
     suspend fun setPin(pin: String) = pinMutex.withLock {
