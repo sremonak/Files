@@ -17,3 +17,7 @@ Alternatively, on macOS/Linux run `./gradlew assembleDebug` from the project roo
 - App lock is a convenience gate, **not encryption**; it does not secure files against other apps with storage access. The PIN is stored as a hash, and the lock is applied when the app starts rather than serving as a secure vault.
 - Ringtone setting may require system permission to modify settings; functionality depends on Android version and device. Dynamic colors require Android 12 or later.
 - This project has not been built or tested on a device in the current environment. Treat it as unverified source, test on expendable files first, and verify file operations and permissions before relying on it.
+
+## Build with GitHub Actions
+
+The **Build Android APK** workflow runs for pushes to this project's working branch, pull requests, and manual runs. To run it manually, open **Actions → Build Android APK → Run workflow**, select the branch, and run it. When the job succeeds, download **Files-Pro-debug-apk** from the run's Artifacts section. This is a debug-signed APK, not a Play Store release. Artifacts are kept for 30 days.
